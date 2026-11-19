@@ -1,0 +1,8 @@
+@{
+    ViewData["Title"] = "Acceso Denegado";
+}
+<div class="alert alert-danger shadow-sm">
+    <h4>Acceso Denegado (403)</h4>
+    <p>Tu token JWT actual no posee el Rol necesario para realizar esta acción.</p>
+    <a asp-controller="Auth" asp-action="Login" class="btn btn-dark btn-sm">Cambiar de usuario</a>
+</div>

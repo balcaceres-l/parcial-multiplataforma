@@ -1,0 +1,100 @@
+﻿<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>@ViewData["Title"] - TechSupplies Compras</title>
+    <script type="importmap"></script>
+    <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
+    <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/Frontend.styles.css" asp-append-version="true" />
+</head>
+<body class="bg-light">
+    <header>
+        <nav class="navbar navbar-expand-lg navbar-dark bg-dark shadow-sm mb-4">
+            <div class="container">
+                <a class="navbar-brand fw-bold" asp-controller="Solicitudes" asp-action="Index">
+                    TechSupplies | Compras &amp; Suministros
+                </a>
+                <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#mainNav">
+                    <span class="navbar-toggler-icon"></span>
+                </button>
+                <div class="collapse navbar-collapse" id="mainNav">
+                    <ul class="navbar-nav me-auto">
+                        <li class="nav-item">
+                            <a class="nav-link" asp-controller="Solicitudes" asp-action="Index">Solicitudes (RF2)</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" asp-controller="Solicitudes" asp-action="Crear">+ Nueva Solicitud (RF1)</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" asp-controller="Solicitudes" asp-action="Logs">Logs TXT &amp; Middlewares</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" asp-controller="Home" asp-action="Index">Estado API</a>
+                        </li>
+                    </ul>
+                    <div class="d-flex align-items-center gap-2">
+                        @if (User.Identity?.IsAuthenticated == true)
+                        {
+                            var nombre = User.FindFirst("NombreCompleto")?.Value ?? User.Identity.Name;
+                            var rol = User.FindFirst("RolPrincipal")?.Value ?? "Usuario";
+                            var depto = User.FindFirst("Departamento")?.Value ?? "";
+                            <span class="badge bg-info text-dark">
+                                @nombre | Rol: @rol (@depto)
+                            </span>
+                            <form asp-controller="Auth" asp-action="Logout" method="post" class="d-inline">
+                                <button type="submit" class="btn btn-outline-light btn-sm">Salir</button>
+                            </form>
+                        }
+                        else
+                        {
+                            <a class="btn btn-primary btn-sm" asp-controller="Auth" asp-action="Login">Iniciar Sesión (JWT)</a>
+                        }
+                    </div>
+                </div>
+            </div>
+        </nav>
+    </header>
+
+    <div class="container">
+        @if (TempData["Success"] != null)
+        {
+            <div class="alert alert-success alert-dismissible fade show shadow-sm" role="alert">
+                <strong>Éxito:</strong> @TempData["Success"]
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+        }
+        @if (TempData["Error"] != null)
+        {
+            <div class="alert alert-danger alert-dismissible fade show shadow-sm" role="alert">
+                <strong>Atención / Conflicto:</strong> @TempData["Error"]
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+        }
+        @if (TempData["ConcurrencySimulation"] != null)
+        {
+            <div class="alert alert-warning alert-dismissible fade show shadow-sm border-warning" role="alert">
+                <strong>Prueba de Concurrencia Simultánea (Regla 4):</strong><br />
+                @TempData["ConcurrencySimulation"]
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+        }
+
+        <main role="main" class="pb-4">
+            @RenderBody()
+        </main>
+    </div>
+
+    <footer class="border-top footer text-muted bg-white py-3 mt-4">
+        <div class="container d-flex justify-content-between small">
+            <span><strong>Luis Felipe Balcaceres Silvestre 2023-BS-602</strong> - Parcial 3 (.NET Web API + MVC)</span>
+            <span>Flujo único: Solicitud &rarr; Aprobación &rarr; Orden de Compra</span>
+        </div>
+    </footer>
+    <script src="~/lib/jquery/dist/jquery.min.js"></script>
+    <script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="~/js/site.js" asp-append-version="true"></script>
+    @await RenderSectionAsync("Scripts", required: false)
+</body>
+</html>

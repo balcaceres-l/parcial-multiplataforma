@@ -1,0 +1,56 @@
+@model Frontend.Models.LoginViewModel
+@{
+    ViewData["Title"] = "Iniciar Sesión (JWT)";
+}
+
+<div class="row justify-content-center">
+    <div class="col-md-5">
+        <div class="card shadow-sm">
+            <div class="card-header bg-dark text-white">
+                <h5 class="mb-0">Autenticación JWT (Roles y Claims)</h5>
+            </div>
+            <div class="card-body">
+                <form asp-action="Login" method="post">
+                    <input type="hidden" name="returnUrl" value="@ViewBag.ReturnUrl" />
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Usuario</label>
+                        <input asp-for="Username" class="form-control" id="inputUser" placeholder="Ej. admin, solicitante1, aprobador1, compras1" />
+                        <span asp-validation-for="Username" class="text-danger small"></span>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Contraseña</label>
+                        <input asp-for="Password" type="password" class="form-control" id="inputPass" value="Pass123!" />
+                        <span asp-validation-for="Password" class="text-danger small"></span>
+                    </div>
+                    <button type="submit" class="btn btn-primary w-100">Ingresar con JWT</button>
+                </form>
+
+                <hr />
+                <p class="small text-muted mb-2"><strong>Acceso rápido por Rol (Contraseña: <code>Pass123!</code>):</strong></p>
+                <div class="d-grid gap-2">
+                    <button type="button" class="btn btn-outline-dark btn-sm text-start" onclick="fillCreds('admin')">
+                        <strong>admin</strong> &mdash; Luis Felipe Balcaceres (Todos los roles: Solicitante, Aprobador, Compras)
+                    </button>
+                    <button type="button" class="btn btn-outline-secondary btn-sm text-start" onclick="fillCreds('solicitante1')">
+                        <strong>solicitante1</strong> &mdash; Rol: Solicitante | Claim Depto: Infraestructura TI
+                    </button>
+                    <button type="button" class="btn btn-outline-success btn-sm text-start" onclick="fillCreds('aprobador1')">
+                        <strong>aprobador1</strong> &mdash; Rol: Aprobador | Claim Depto: Gerencia de Operaciones
+                    </button>
+                    <button type="button" class="btn btn-outline-primary btn-sm text-start" onclick="fillCreds('compras1')">
+                        <strong>compras1</strong> &mdash; Rol: Compras | Claim Depto: Adquisiciones y Compras
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        function fillCreds(user) {
+            document.getElementById('inputUser').value = user;
+            document.getElementById('inputPass').value = 'Pass123!';
+        }
+    </script>
+}

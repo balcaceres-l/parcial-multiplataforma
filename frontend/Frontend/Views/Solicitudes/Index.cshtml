@@ -1,0 +1,113 @@
+@model List<Frontend.Models.SolicitudCompraVm>
+@{
+    ViewData["Title"] = "Solicitudes de Compra (RF2)";
+    var estadoActual = ViewBag.FiltroEstado as string;
+    var deptoActual = ViewBag.FiltroDepartamento as string;
+    var busquedaActual = ViewBag.FiltroBusqueda as string;
+}
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <div>
+        <h3 class="fw-bold mb-0">Gestión de Solicitudes y Órdenes de Compra</h3>
+        <span class="text-muted small">Flujo único: <strong>Solicitud (Pendiente) &rarr; Aprobación (Aprobada) &rarr; Orden de Compra (OrdenEmitida)</strong></span>
+    </div>
+    <a asp-action="Crear" class="btn btn-primary">+ Registrar Solicitud (RF1)</a>
+</div>
+
+<!-- RF2: Filtro para encontrar solicitudes más fácilmente -->
+<div class="card shadow-sm mb-4">
+    <div class="card-body py-3">
+        <form method="get" asp-action="Index" class="row g-2 align-items-end">
+            <div class="col-md-3">
+                <label class="form-label small fw-semibold mb-1">Filtrar por Estado</label>
+                <select name="estado" class="form-select form-select-sm">
+                    <option value="">-- Todos los estados --</option>
+                    <option value="Pendiente" selected="@(estadoActual == "Pendiente")">Pendiente</option>
+                    <option value="Aprobada" selected="@(estadoActual == "Aprobada")">Aprobada</option>
+                    <option value="OrdenEmitida" selected="@(estadoActual == "OrdenEmitida")">OrdenEmitida</option>
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label small fw-semibold mb-1">Filtrar por Departamento</label>
+                <input type="text" name="departamento" value="@deptoActual" class="form-control form-control-sm" placeholder="Ej. Infraestructura TI, Redes..." />
+            </div>
+            <div class="col-md-4">
+                <label class="form-label small fw-semibold mb-1">Búsqueda rápida</label>
+                <input type="text" name="busqueda" value="@busquedaActual" class="form-control form-control-sm" placeholder="Descripción, justificación o solicitante..." />
+            </div>
+            <div class="col-md-2 d-flex gap-1">
+                <button type="submit" class="btn btn-dark btn-sm w-100">Filtrar</button>
+                <a asp-action="Index" class="btn btn-outline-secondary btn-sm">Limpiar</a>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- RF2: Tabla con Departamento, Monto, Estado y Fecha -->
+<div class="card shadow-sm">
+    <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0">
+            <thead class="table-dark">
+                <tr>
+                    <th>#ID</th>
+                    <th>Departamento</th>
+                    <th>Descripción / Justificación</th>
+                    <th>Monto Estimado</th>
+                    <th>Estado</th>
+                    <th>Fecha</th>
+                    <th>Orden de Compra</th>
+                    <th class="text-end">Acciones</th>
+                </tr>
+            </thead>
+            <tbody>
+                @if (Model.Count == 0)
+                {
+                    <tr>
+                        <td colspan="8" class="text-center py-4 text-muted">
+                            No se encontraron solicitudes con los filtros seleccionados.
+                        </td>
+                    </tr>
+                }
+                @foreach (var item in Model)
+                {
+                    var badgeClass = item.Estado switch
+                    {
+                        "Pendiente" => "bg-warning text-dark",
+                        "Aprobada" => "bg-primary",
+                        "OrdenEmitida" => "bg-success",
+                        _ => "bg-secondary"
+                    };
+
+                    <tr>
+                        <td class="fw-bold">#@item.Id</td>
+                        <td><span class="badge bg-light text-dark border">@item.Departamento</span></td>
+                        <td>
+                            <div class="fw-semibold">@item.Descripcion</div>
+                            <div class="small text-muted">Justificación: @item.Justificacion</div>
+                        </td>
+                        <td class="fw-bold text-nowrap">$@item.MontoEstimado.ToString("N2")</td>
+                        <td><span class="badge @badgeClass">@item.Estado</span></td>
+                        <td class="small text-nowrap">@item.FechaCreacion.ToString("dd/MM/yyyy HH:mm")</td>
+                        <td class="small">
+                            @if (item.OrdenCompra != null)
+                            {
+                                <span class="text-success fw-semibold">
+                                    OC #@item.OrdenCompra.Id - @item.OrdenCompra.Proveedor ($@item.OrdenCompra.Monto.ToString("N2"))
+                                </span>
+                            }
+                            else
+                            {
+                                <span class="text-muted">Sin orden</span>
+                            }
+                        </td>
+                        <td class="text-end">
+                            <a asp-action="Detalles" asp-route-id="@item.Id" class="btn btn-sm btn-outline-primary">
+                                Gestionar / Flujo &rarr;
+                            </a>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+</div>
