@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace Frontend.Controllers;
 
+[Authorize]
 public class SolicitudesController : Controller
 {
     private readonly IApiClientService _apiClient;
@@ -15,7 +16,9 @@ public class SolicitudesController : Controller
     }
 
     /// <summary>
-    /// RF2: Listar solicitudes con departamento, monto, estado y fecha, además de un filtro para encontrarlas fácilmente.
+    /// RF2: Listar solicitudes con departamento, monto, estado y fecha, además de filtro.
+    /// - Rol "Solicitante": Solo ve sus propias solicitudes.
+    /// - Rol "Admin": Ve todas las solicitudes de todas las personas.
     /// </summary>
     [HttpGet]
     public async Task<IActionResult> Index(string? estado = null, string? departamento = null, string? busqueda = null)
@@ -32,7 +35,6 @@ public class SolicitudesController : Controller
     /// RF1: Formulario para registrar solicitud de compra.
     /// </summary>
     [HttpGet]
-    [Authorize]
     public IActionResult Crear()
     {
         var deptoClaim = User.FindFirst("Departamento")?.Value ?? "Infraestructura TI";
@@ -40,7 +42,6 @@ public class SolicitudesController : Controller
     }
 
     [HttpPost]
-    [Authorize]
     public async Task<IActionResult> Crear(CrearSolicitudVm model)
     {
         var res = await _apiClient.CrearSolicitudAsync(model);
@@ -60,7 +61,7 @@ public class SolicitudesController : Controller
         var solicitud = await _apiClient.GetSolicitudByIdAsync(id);
         if (solicitud == null)
         {
-            TempData["Error"] = $"La solicitud #{id} no fue encontrada.";
+            TempData["Error"] = $"No tienes acceso a la solicitud #{id} o no existe.";
             return RedirectToAction(nameof(Index));
         }
 
@@ -69,10 +70,10 @@ public class SolicitudesController : Controller
     }
 
     /// <summary>
-    /// RF3: Aprobar solicitud pendiente.
+    /// RF3: Aprobar solicitud pendiente (Solo Admin).
     /// </summary>
     [HttpPost]
-    [Authorize]
+    [Authorize(Roles = "Admin")]
     public async Task<IActionResult> Aprobar(int id)
     {
         var res = await _apiClient.AprobarSolicitudAsync(id);
@@ -89,10 +90,10 @@ public class SolicitudesController : Controller
     }
 
     /// <summary>
-    /// RF4: Emitir orden de compra desde una solicitud Aprobada.
+    /// RF4: Emitir orden de compra desde una solicitud Aprobada (Solo Admin).
     /// </summary>
     [HttpPost]
-    [Authorize]
+    [Authorize(Roles = "Admin")]
     public async Task<IActionResult> EmitirOrden(EmitirOrdenVm model)
     {
         var res = await _apiClient.EmitirOrdenCompraAsync(model.SolicitudId, model);
@@ -113,23 +114,36 @@ public class SolicitudesController : Controller
     /// intentando emitir la orden de compra sobre la misma solicitud Aprobada.
     /// </summary>
     [HttpPost]
-    [Authorize]
+    [Authorize(Roles = "Admin")]
     public async Task<IActionResult> SimularConcurrencia(int solicitudId, string proveedor, decimal monto, string rowVersion)
     {
         var (respA, respB) = await _apiClient.SimularConcurrenciaOrdenAsync(solicitudId, proveedor, monto, rowVersion);
 
         TempData["ConcurrencySimulation"] =
             $"RESULTADO SIMULACIÓN DE CONCURRENCIA (REGLA 4): " +
-            $"• Petición Empleado A [{respA.RequestId}]: HTTP {respA.StatusCode} -> {respA.Message} | " +
-            $"• Petición Empleado B [{respB.RequestId}]: HTTP {respB.StatusCode} -> {respB.Message}";
+            $"• Petición 1 [{respA.RequestId}]: HTTP {respA.StatusCode} -> {respA.Message} | " +
+            $"• Petición 2 [{respB.RequestId}]: HTTP {respB.StatusCode} -> {respB.Message}";
 
         return RedirectToAction(nameof(Detalles), new { id = solicitudId });
     }
 
     /// <summary>
-    /// Vista para consultar los Logs en archivo TXT generados por los middlewares y operaciones del backend.
+    /// Panel exclusivo del Admin para auditar todos los cambios realizados sobre todas las solicitudes
+    /// (quién creó, quién aprobó, quién emitió orden y conflictos detectados).
     /// </summary>
     [HttpGet]
+    [Authorize(Roles = "Admin")]
+    public async Task<IActionResult> Auditoria()
+    {
+        var historial = await _apiClient.GetAuditoriaAsync();
+        return View(historial);
+    }
+
+    /// <summary>
+    /// Vista exclusiva del Admin para consultar los Logs en archivo TXT generados por los middlewares y operaciones.
+    /// </summary>
+    [HttpGet]
+    [Authorize(Roles = "Admin")]
     public async Task<IActionResult> Logs()
     {
         var logs = await _apiClient.GetLogsAsync();
@@ -137,6 +151,7 @@ public class SolicitudesController : Controller
     }
 
     [HttpPost]
+    [Authorize(Roles = "Admin")]
     public async Task<IActionResult> ProbarExcepcion()
     {
         var res = await _apiClient.ProbarExcepcionGlobalAsync();

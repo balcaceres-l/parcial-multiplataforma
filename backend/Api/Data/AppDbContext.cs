@@ -12,6 +12,7 @@ public class AppDbContext : DbContext
     public DbSet<Usuario> Usuarios => Set<Usuario>();
     public DbSet<SolicitudCompra> SolicitudesCompra => Set<SolicitudCompra>();
     public DbSet<OrdenCompra> OrdenesCompra => Set<OrdenCompra>();
+    public DbSet<AuditoriaCambio> AuditoriasCambios => Set<AuditoriaCambio>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -35,6 +36,11 @@ public class AppDbContext : DbContext
                   .WithOne(o => o.SolicitudCompra)
                   .HasForeignKey<OrdenCompra>(o => o.SolicitudCompraId)
                   .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasMany(s => s.HistorialAuditoria)
+                  .WithOne(a => a.SolicitudCompra)
+                  .HasForeignKey(a => a.SolicitudCompraId)
+                  .OnDelete(DeleteBehavior.Cascade);
         });
 
         modelBuilder.Entity<OrdenCompra>(entity =>
@@ -51,10 +57,22 @@ public static class DbSeeder
 {
     public static void Seed(AppDbContext db)
     {
+        // Si la tabla existente tiene el esquema anterior sin AuditoriasCambios o CreadoPorUsername, recreamos limpiamente
+        try
+        {
+            _ = db.AuditoriasCambios.Any();
+            _ = db.SolicitudesCompra.Select(s => s.CreadoPorUsername).FirstOrDefault();
+        }
+        catch
+        {
+            db.Database.EnsureDeleted();
+        }
+
         db.Database.EnsureCreated();
 
         if (!db.Usuarios.Any())
         {
+            // Solo 2 roles en el sistema: "Admin" y "Solicitante"
             db.Usuarios.AddRange(
                 new Usuario
                 {
@@ -63,7 +81,16 @@ public static class DbSeeder
                     NombreCompleto = "Luis Felipe Balcaceres Silvestre",
                     Email = "lbalcaceres@techsupplies.com",
                     Departamento = "Dirección General",
-                    Rol = "Admin"
+                    Rol = RolesSistema.Admin
+                },
+                new Usuario
+                {
+                    Username = "admin2",
+                    PasswordHash = BCrypt.Net.BCrypt.HashPassword("Pass123!"),
+                    NombreCompleto = "Ana López (Admin Aprobadora)",
+                    Email = "alopez@techsupplies.com",
+                    Departamento = "Gerencia y Compras",
+                    Rol = RolesSistema.Admin
                 },
                 new Usuario
                 {
@@ -72,25 +99,16 @@ public static class DbSeeder
                     NombreCompleto = "Carlos Méndez",
                     Email = "cmendez@techsupplies.com",
                     Departamento = "Infraestructura TI",
-                    Rol = "Solicitante"
+                    Rol = RolesSistema.Solicitante
                 },
                 new Usuario
                 {
-                    Username = "aprobador1",
+                    Username = "solicitante2",
                     PasswordHash = BCrypt.Net.BCrypt.HashPassword("Pass123!"),
-                    NombreCompleto = "Ana López",
-                    Email = "alopez@techsupplies.com",
-                    Departamento = "Gerencia de Operaciones",
-                    Rol = "Aprobador"
-                },
-                new Usuario
-                {
-                    Username = "compras1",
-                    PasswordHash = BCrypt.Net.BCrypt.HashPassword("Pass123!"),
-                    NombreCompleto = "Roberto Gómez",
-                    Email = "rgomez@techsupplies.com",
-                    Departamento = "Adquisiciones y Compras",
-                    Rol = "Compras"
+                    NombreCompleto = "María Fernanda Ruiz",
+                    Email = "mruiz@techsupplies.com",
+                    Departamento = "Redes y Telecomunicaciones",
+                    Rol = RolesSistema.Solicitante
                 }
             );
             db.SaveChanges();
@@ -105,8 +123,9 @@ public static class DbSeeder
                 Justificacion = "Renovación de equipos para nuevos desarrolladores del área de plataforma.",
                 MontoEstimado = 6250.00m,
                 Estado = EstadoSolicitud.Pendiente,
-                FechaCreacion = DateTime.Now.AddHours(-5),
-                CreadoPor = "Carlos Méndez (Infraestructura TI)",
+                FechaCreacion = DateTime.Now.AddHours(-4),
+                CreadoPorUsername = "solicitante1",
+                CreadoPor = "Carlos Méndez [solicitante1] (Infraestructura TI)",
                 RowVersion = Guid.NewGuid().ToString("N")
             };
 
@@ -118,13 +137,57 @@ public static class DbSeeder
                 MontoEstimado = 1850.00m,
                 Estado = EstadoSolicitud.Aprobada,
                 FechaCreacion = DateTime.Now.AddHours(-3),
-                CreadoPor = "Carlos Méndez (Infraestructura TI)",
-                AprobadoPor = "Ana López (Gerencia de Operaciones)",
+                CreadoPorUsername = "solicitante2",
+                CreadoPor = "María Fernanda Ruiz [solicitante2] (Redes y Telecomunicaciones)",
+                AprobadoPor = "Luis Felipe Balcaceres Silvestre [admin] (Dirección General)",
                 FechaAprobacion = DateTime.Now.AddHours(-1),
                 RowVersion = Guid.NewGuid().ToString("N")
             };
 
             db.SolicitudesCompra.AddRange(sol1, sol2);
+            db.SaveChanges();
+
+            db.AuditoriasCambios.AddRange(
+                new AuditoriaCambio
+                {
+                    SolicitudCompraId = sol1.Id,
+                    Accion = "SOLICITUD_CREADA",
+                    EstadoAnterior = "-",
+                    EstadoNuevo = EstadoSolicitud.Pendiente,
+                    UsuarioUsername = "solicitante1",
+                    UsuarioNombre = "Carlos Méndez",
+                    UsuarioRol = RolesSistema.Solicitante,
+                    Detalle = "Solicitud registrada por Carlos Méndez (Monto: $6,250.00)",
+                    RequestId = "SEED-INIT-001",
+                    FechaHora = sol1.FechaCreacion
+                },
+                new AuditoriaCambio
+                {
+                    SolicitudCompraId = sol2.Id,
+                    Accion = "SOLICITUD_CREADA",
+                    EstadoAnterior = "-",
+                    EstadoNuevo = EstadoSolicitud.Pendiente,
+                    UsuarioUsername = "solicitante2",
+                    UsuarioNombre = "María Fernanda Ruiz",
+                    UsuarioRol = RolesSistema.Solicitante,
+                    Detalle = "Solicitud registrada por María Fernanda Ruiz (Monto: $1,850.00)",
+                    RequestId = "SEED-INIT-002",
+                    FechaHora = sol2.FechaCreacion
+                },
+                new AuditoriaCambio
+                {
+                    SolicitudCompraId = sol2.Id,
+                    Accion = "SOLICITUD_APROBADA",
+                    EstadoAnterior = EstadoSolicitud.Pendiente,
+                    EstadoNuevo = EstadoSolicitud.Aprobada,
+                    UsuarioUsername = "admin",
+                    UsuarioNombre = "Luis Felipe Balcaceres Silvestre",
+                    UsuarioRol = RolesSistema.Admin,
+                    Detalle = "Solicitud aprobada por el administrador Luis Felipe Balcaceres Silvestre [admin]",
+                    RequestId = "SEED-INIT-003",
+                    FechaHora = sol2.FechaAprobacion!.Value
+                }
+            );
             db.SaveChanges();
         }
     }

@@ -32,12 +32,14 @@ public class SolicitudCompraVm
     public decimal MontoEstimado { get; set; }
     public string Estado { get; set; } = "Pendiente";
     public DateTime FechaCreacion { get; set; }
+    public string CreadoPorUsername { get; set; } = string.Empty;
     public string CreadoPor { get; set; } = string.Empty;
     public string? AprobadoPor { get; set; }
     public DateTime? FechaAprobacion { get; set; }
     public string? ImagenUrl { get; set; }
     public string RowVersion { get; set; } = string.Empty;
     public OrdenCompraVm? OrdenCompra { get; set; }
+    public List<AuditoriaCambioVm> HistorialAuditoria { get; set; } = [];
 }
 
 public class OrdenCompraVm
@@ -49,6 +51,21 @@ public class OrdenCompraVm
     public DateTime FechaEmision { get; set; }
     public string EmitidoPor { get; set; } = string.Empty;
     public string? ComprobanteImagenUrl { get; set; }
+}
+
+public class AuditoriaCambioVm
+{
+    public int Id { get; set; }
+    public int SolicitudCompraId { get; set; }
+    public string Accion { get; set; } = string.Empty;
+    public string EstadoAnterior { get; set; } = string.Empty;
+    public string EstadoNuevo { get; set; } = string.Empty;
+    public string UsuarioUsername { get; set; } = string.Empty;
+    public string UsuarioNombre { get; set; } = string.Empty;
+    public string UsuarioRol { get; set; } = string.Empty;
+    public string Detalle { get; set; } = string.Empty;
+    public string RequestId { get; set; } = string.Empty;
+    public DateTime FechaHora { get; set; }
 }
 
 public class CrearSolicitudVm

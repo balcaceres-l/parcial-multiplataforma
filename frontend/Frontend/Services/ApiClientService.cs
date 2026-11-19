@@ -17,6 +17,7 @@ public interface IApiClientService
     Task<ApiResultVm> AprobarSolicitudAsync(int id);
     Task<ApiResultVm> EmitirOrdenCompraAsync(int id, EmitirOrdenVm model, string? customRequestId = null);
     Task<(ApiResultVm RespuestaA, ApiResultVm RespuestaB)> SimularConcurrenciaOrdenAsync(int id, string proveedor, decimal monto, string rowVersion);
+    Task<List<AuditoriaCambioVm>> GetAuditoriaAsync();
     Task<LogsApiResponse?> GetLogsAsync();
     Task<ApiResultVm> ProbarExcepcionGlobalAsync();
 }
@@ -76,7 +77,9 @@ public class ApiClientService : IApiClientService
         if (!string.IsNullOrWhiteSpace(busqueda)) queryParams.Add($"busqueda={Uri.EscapeDataString(busqueda)}");
 
         var url = "/api/solicitudes" + (queryParams.Count > 0 ? "?" + string.Join("&", queryParams) : "");
-        var res = await Client.GetFromJsonAsync<List<SolicitudCompraVm>>(url, _jsonOpts);
+        var response = await Client.GetAsync(url);
+        if (!response.IsSuccessStatusCode) return [];
+        var res = await response.Content.ReadFromJsonAsync<List<SolicitudCompraVm>>(_jsonOpts);
         return res ?? [];
     }
 
@@ -143,15 +146,11 @@ public class ApiClientService : IApiClientService
         return await ParseResponseAsync(response);
     }
 
-    /// <summary>
-    /// Simula 2 usuarios/empleados procesando la misma solicitud al mismo tiempo (Task.WhenAll)
-    /// enviando exactamente el mismo RowVersion leído previamente para demostrar la Regla de Negocio 4.
-    /// </summary>
     public async Task<(ApiResultVm RespuestaA, ApiResultVm RespuestaB)> SimularConcurrenciaOrdenAsync(
         int id, string proveedor, decimal monto, string rowVersion)
     {
-        var reqIdA = $"SIM-EMPLEADO1-{Guid.NewGuid().ToString("N")[..6].ToUpper()}";
-        var reqIdB = $"SIM-EMPLEADO2-{Guid.NewGuid().ToString("N")[..6].ToUpper()}";
+        var reqIdA = $"SIM-ADMIN1-{Guid.NewGuid().ToString("N")[..6].ToUpper()}";
+        var reqIdB = $"SIM-ADMIN2-{Guid.NewGuid().ToString("N")[..6].ToUpper()}";
 
         var modelA = new EmitirOrdenVm
         {
@@ -176,9 +175,18 @@ public class ApiClientService : IApiClientService
         return (results[0], results[1]);
     }
 
+    public async Task<List<AuditoriaCambioVm>> GetAuditoriaAsync()
+    {
+        var response = await Client.GetAsync("/api/solicitudes/auditoria");
+        if (!response.IsSuccessStatusCode) return [];
+        return await response.Content.ReadFromJsonAsync<List<AuditoriaCambioVm>>(_jsonOpts) ?? [];
+    }
+
     public async Task<LogsApiResponse?> GetLogsAsync()
     {
-        return await Client.GetFromJsonAsync<LogsApiResponse>("/api/solicitudes/logs", _jsonOpts);
+        var response = await Client.GetAsync("/api/solicitudes/logs");
+        if (!response.IsSuccessStatusCode) return new LogsApiResponse();
+        return await response.Content.ReadFromJsonAsync<LogsApiResponse>(_jsonOpts);
     }
 
     public async Task<ApiResultVm> ProbarExcepcionGlobalAsync()

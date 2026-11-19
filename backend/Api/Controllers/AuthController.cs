@@ -46,9 +46,8 @@ public class AuthController : ControllerBase
             });
         }
 
-        var roles = user.Rol == "Admin"
-            ? new[] { "Admin", "Solicitante", "Aprobador", "Compras" }
-            : new[] { user.Rol };
+        // Sistema con exactamente 2 roles: "Solicitante" o "Admin"
+        var roles = new[] { user.Rol };
 
         var customClaims = new Dictionary<string, string>
         {

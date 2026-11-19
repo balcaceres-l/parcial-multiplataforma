@@ -28,12 +28,12 @@ public class EmitirOrdenDto
 
 [ApiController]
 [Route("api/[controller]")]
+[Authorize]
 public class SolicitudesController : ControllerBase
 {
     private readonly AppDbContext _db;
     private readonly IImageService _imageService;
     private readonly IFileOperationLogger _fileLogger;
-    // Semáforo para coordinar demostraciones de concurrencia o transacciones cuando dos hilos llegan exactamente al mismo milisegundo
     private static readonly SemaphoreSlim _concurrencyGate = new(1, 1);
 
     public SolicitudesController(AppDbContext db, IImageService imageService, IFileOperationLogger fileLogger)
@@ -46,15 +46,32 @@ public class SolicitudesController : ControllerBase
     private string GetRequestId() =>
         HttpContext.Items[RequestIdMiddleware.HeaderName]?.ToString() ?? HttpContext.TraceIdentifier;
 
+    private string GetCurrentUsername() =>
+        User.Identity?.Name ?? "anonimo";
+
+    private string GetCurrentNombreCompleto() =>
+        User.FindFirst("NombreCompleto")?.Value ?? GetCurrentUsername();
+
+    private string GetCurrentRol() =>
+        User.FindFirst(ClaimTypes.Role)?.Value ?? User.FindFirst("RolPrincipal")?.Value ?? RolesSistema.Solicitante;
+
+    private bool IsAdmin() =>
+        User.IsInRole(RolesSistema.Admin);
+
     private string GetCurrentActor()
     {
-        var nombre = User.FindFirst("NombreCompleto")?.Value ?? User.Identity?.Name ?? "Usuario";
+        var username = GetCurrentUsername();
+        var nombre = GetCurrentNombreCompleto();
         var depto = User.FindFirst("Departamento")?.Value;
-        return string.IsNullOrWhiteSpace(depto) ? nombre : $"{nombre} ({depto})";
+        return string.IsNullOrWhiteSpace(depto)
+            ? $"{nombre} [{username}]"
+            : $"{nombre} [{username}] ({depto})";
     }
 
     /// <summary>
-    /// RF2: Listar solicitudes con departamento, monto, estado y fecha, además de filtro para encontrarlas fácilmente.
+    /// RF2: Listar solicitudes con departamento, monto, estado y fecha, además de filtro.
+    /// - Si el usuario tiene rol "Solicitante": solo tiene acceso a SUS propias solicitudes.
+    /// - Si el usuario tiene rol "Admin": tiene acceso a TODAS las solicitudes de todas las personas.
     /// </summary>
     [HttpGet]
     public async Task<IActionResult> ListarSolicitudes(
@@ -64,8 +81,16 @@ public class SolicitudesController : ControllerBase
     {
         var query = _db.SolicitudesCompra
             .Include(s => s.OrdenCompra)
+            .Include(s => s.HistorialAuditoria)
             .AsNoTracking()
             .AsQueryable();
+
+        // Control de acceso por Rol (2 roles: Solicitante ve solo las suyas, Admin ve las de todos)
+        if (!IsAdmin())
+        {
+            var myUsername = GetCurrentUsername();
+            query = query.Where(s => s.CreadoPorUsername == myUsername);
+        }
 
         if (!string.IsNullOrWhiteSpace(estado))
         {
@@ -100,6 +125,7 @@ public class SolicitudesController : ControllerBase
         var requestId = GetRequestId();
         var solicitud = await _db.SolicitudesCompra
             .Include(s => s.OrdenCompra)
+            .Include(s => s.HistorialAuditoria.OrderByDescending(a => a.FechaHora))
             .AsNoTracking()
             .FirstOrDefaultAsync(s => s.Id == id);
 
@@ -115,16 +141,31 @@ public class SolicitudesController : ControllerBase
             });
         }
 
+        // Un Solicitante solo puede acceder a sus propias solicitudes; el Admin puede ver cualquiera
+        if (!IsAdmin() && solicitud.CreadoPorUsername != GetCurrentUsername())
+        {
+            var msg = $"Acceso denegado: El usuario '{GetCurrentUsername()}' (Rol: Solicitante) solo tiene permiso para ver sus propias solicitudes.";
+            await _fileLogger.LogOperationAsync(requestId, "ERROR_ACCESO_ROL", msg);
+            return StatusCode(StatusCodes.Status403Forbidden, new
+            {
+                requestId,
+                status = 403,
+                error = "Acceso Restringido a Solicitudes Propias",
+                message = msg,
+                timestamp = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss")
+            });
+        }
+
         return Ok(solicitud);
     }
 
     /// <summary>
-    /// RF1: Registrar solicitud de compra con departamento, descripción, justificación y monto estimado.
+    /// RF1: Registrar solicitud de compra (accesible tanto por Solicitante como por Admin).
     /// Estado inicial: Pendiente.
     /// Regla de negocio 1: El monto debe ser mayor a 0 y la justificación es obligatoria.
     /// </summary>
     [HttpPost]
-    [Authorize]
+    [Authorize(Roles = "Solicitante,Admin")]
     public async Task<IActionResult> CrearSolicitud([FromForm] CrearSolicitudDto dto)
     {
         var requestId = GetRequestId();
@@ -179,6 +220,7 @@ public class SolicitudesController : ControllerBase
         }
 
         var actor = GetCurrentActor();
+        var username = GetCurrentUsername();
         var nueva = new SolicitudCompra
         {
             Departamento = dto.Departamento.Trim(),
@@ -187,12 +229,29 @@ public class SolicitudesController : ControllerBase
             MontoEstimado = dto.MontoEstimado,
             Estado = EstadoSolicitud.Pendiente, // RF1: Estado inicial Pendiente
             FechaCreacion = DateTime.Now,
+            CreadoPorUsername = username,
             CreadoPor = actor,
             ImagenUrl = imagenUrl,
             RowVersion = Guid.NewGuid().ToString("N")
         };
 
         _db.SolicitudesCompra.Add(nueva);
+        await _db.SaveChangesAsync();
+
+        // Registrar en la tabla de Auditoría para que el Admin pueda auditar todos los cambios
+        _db.AuditoriasCambios.Add(new AuditoriaCambio
+        {
+            SolicitudCompraId = nueva.Id,
+            Accion = "SOLICITUD_CREADA",
+            EstadoAnterior = "-",
+            EstadoNuevo = EstadoSolicitud.Pendiente,
+            UsuarioUsername = username,
+            UsuarioNombre = GetCurrentNombreCompleto(),
+            UsuarioRol = GetCurrentRol(),
+            Detalle = $"Solicitud registrada en departamento '{nueva.Departamento}' por monto estimado de ${nueva.MontoEstimado:N2}",
+            RequestId = requestId,
+            FechaHora = nueva.FechaCreacion
+        });
         await _db.SaveChangesAsync();
 
         await _fileLogger.LogOperationAsync(
@@ -209,11 +268,12 @@ public class SolicitudesController : ControllerBase
     }
 
     /// <summary>
-    /// RF3: Aprobar solicitud: Cambiar una solicitud pendiente a aprobada, registrando quién la aprobó.
+    /// RF3: Aprobar solicitud: Cambiar una solicitud pendiente a aprobada, registrando el usuario que la aprobó.
     /// Regla de negocio 2: Solo una solicitud Pendiente puede aprobarse.
+    /// Solo el rol Admin puede aprobar y auditar las solicitudes.
     /// </summary>
     [HttpPut("{id:int}/aprobar")]
-    [Authorize(Roles = "Aprobador,Admin")]
+    [Authorize(Roles = "Admin")]
     public async Task<IActionResult> AprobarSolicitud(int id)
     {
         var requestId = GetRequestId();
@@ -246,12 +306,26 @@ public class SolicitudesController : ControllerBase
             });
         }
 
+        var estadoAnterior = solicitud.Estado;
         var aprobador = GetCurrentActor();
         solicitud.Estado = EstadoSolicitud.Aprobada;
         solicitud.AprobadoPor = aprobador;
         solicitud.FechaAprobacion = DateTime.Now;
-        // Rotamos el token de concurrencia RowVersion al cambiar el estado
         solicitud.RowVersion = Guid.NewGuid().ToString("N");
+
+        _db.AuditoriasCambios.Add(new AuditoriaCambio
+        {
+            SolicitudCompraId = solicitud.Id,
+            Accion = "SOLICITUD_APROBADA",
+            EstadoAnterior = estadoAnterior,
+            EstadoNuevo = EstadoSolicitud.Aprobada,
+            UsuarioUsername = GetCurrentUsername(),
+            UsuarioNombre = GetCurrentNombreCompleto(),
+            UsuarioRol = GetCurrentRol(),
+            Detalle = $"Solicitud #{solicitud.Id} aprobada por {aprobador}",
+            RequestId = requestId,
+            FechaHora = solicitud.FechaAprobacion.Value
+        });
 
         await _db.SaveChangesAsync();
 
@@ -276,7 +350,7 @@ public class SolicitudesController : ControllerBase
     ///          debe tener éxito y la otra debe recibir un mensaje de conflicto (409 Conflict).
     /// </summary>
     [HttpPost("{id:int}/orden-compra")]
-    [Authorize(Roles = "Compras,Admin")]
+    [Authorize(Roles = "Admin")]
     public async Task<IActionResult> EmitirOrdenCompra(int id, [FromForm] EmitirOrdenDto dto)
     {
         var requestId = GetRequestId();
@@ -311,7 +385,6 @@ public class SolicitudesController : ControllerBase
             });
         }
 
-        // Paso 1: Ambos usuarios/hilos leen la solicitud en su estado actual (antes de adquirir cambios)
         var solicitud = await _db.SolicitudesCompra
             .Include(s => s.OrdenCompra)
             .FirstOrDefaultAsync(s => s.Id == id);
@@ -328,11 +401,8 @@ public class SolicitudesController : ControllerBase
             });
         }
 
-        // Si el cliente envió el RowVersion leído al abrir el formulario, lo fijamos como OriginalValue
-        // para que EF Core ejecute: UPDATE SolicitudesCompra ... WHERE Id = @p0 AND RowVersion = @originalRowVersion
         if (!string.IsNullOrWhiteSpace(dto.RowVersion))
         {
-            // Si ya en la lectura inicial el RowVersion de BD es distinto al del cliente (porque otra petición concurrente ya ganó)
             if (solicitud.RowVersion != dto.RowVersion)
             {
                 var conflictMsg = $"Conflicto de concurrencia (Regla 4): La solicitud #{id} ya fue procesada por otro usuario simultáneamente (RowVersion desactualizado).";
@@ -353,7 +423,6 @@ public class SolicitudesController : ControllerBase
         // Regla 3: Solo una solicitud Aprobada puede generar una orden de compra y solo una vez
         if (solicitud.OrdenCompra != null || solicitud.Estado == EstadoSolicitud.OrdenEmitida)
         {
-            // Si la solicitud ya tiene orden emitida, distinguimos si fue un intento concurrente o repetido
             var msg = $"Conflicto (Reglas 3 y 4): La solicitud #{id} ya cuenta con una Orden de Compra emitida (#{solicitud.OrdenCompra?.Id}). No se permiten órdenes duplicadas.";
             await _fileLogger.LogOperationAsync(requestId, "CONFLICTO_CONCURRENCIA", $"{msg} | Usuario: '{actor}'");
             return Conflict(new
@@ -380,8 +449,6 @@ public class SolicitudesController : ControllerBase
             });
         }
 
-        // Pequeña ventana para que si dos peticiones llegan en paralelo sin RowVersion explícito,
-        // ambas hayan leído el mismo RowVersion original antes de intentar confirmar en la base de datos.
         await Task.Delay(120);
 
         string? comprobanteUrl = null;
@@ -396,7 +463,7 @@ public class SolicitudesController : ControllerBase
             await using var transaction = await _db.Database.BeginTransactionAsync();
             try
             {
-                // Modificamos la solicitud (rotando su RowVersion y cambiando estado a OrdenEmitida)
+                var estadoAnterior = solicitud.Estado;
                 solicitud.Estado = EstadoSolicitud.OrdenEmitida;
                 solicitud.RowVersion = Guid.NewGuid().ToString("N");
 
@@ -412,9 +479,20 @@ public class SolicitudesController : ControllerBase
 
                 _db.OrdenesCompra.Add(orden);
 
-                // EF Core verifica en este SaveChangesAsync():
-                // 1) WHERE Id = @id AND RowVersion = @OriginalRowVersion (lanza DbUpdateConcurrencyException si otro hilo ya actualizó)
-                // 2) Índice UNIQUE en OrdenesCompra.SolicitudCompraId (lanza DbUpdateException si ya existe fila)
+                _db.AuditoriasCambios.Add(new AuditoriaCambio
+                {
+                    SolicitudCompraId = solicitud.Id,
+                    Accion = "ORDEN_EMITIDA",
+                    EstadoAnterior = estadoAnterior,
+                    EstadoNuevo = EstadoSolicitud.OrdenEmitida,
+                    UsuarioUsername = GetCurrentUsername(),
+                    UsuarioNombre = GetCurrentNombreCompleto(),
+                    UsuarioRol = GetCurrentRol(),
+                    Detalle = $"Orden de Compra emitida para proveedor '{orden.Proveedor}' por monto ${orden.Monto:N2}",
+                    RequestId = requestId,
+                    FechaHora = orden.FechaEmision
+                });
+
                 await _db.SaveChangesAsync();
                 await transaction.CommitAsync();
 
@@ -447,6 +525,8 @@ public class SolicitudesController : ControllerBase
                 var conflictMsg = $"Conflicto de concurrencia detectado por EF Core (Regla 4): Otro usuario emitió la orden de compra para la solicitud #{id} al mismo tiempo. Operación cancelada para evitar duplicados.";
                 await _fileLogger.LogOperationAsync(requestId, "CONFLICTO_CONCURRENCIA", $"{conflictMsg} | Usuario rechazado: '{actor}'");
 
+                await RegistrarAuditoriaConflictoAsync(id, requestId, conflictMsg);
+
                 return Conflict(new
                 {
                     requestId,
@@ -464,6 +544,8 @@ public class SolicitudesController : ControllerBase
                 var conflictMsg = $"Conflicto de unicidad en base de datos (Reglas 3 y 4): Ya existe una orden de compra asociada a la solicitud #{id} creada en otra transacción concurrente.";
                 await _fileLogger.LogOperationAsync(requestId, "CONFLICTO_CONCURRENCIA", $"{conflictMsg} | Usuario rechazado: '{actor}'");
 
+                await RegistrarAuditoriaConflictoAsync(id, requestId, conflictMsg);
+
                 return Conflict(new
                 {
                     requestId,
@@ -480,10 +562,53 @@ public class SolicitudesController : ControllerBase
         }
     }
 
+    private async Task RegistrarAuditoriaConflictoAsync(int solicitudId, string requestId, string detalle)
+    {
+        try
+        {
+            _db.ChangeTracker.Clear();
+            _db.AuditoriasCambios.Add(new AuditoriaCambio
+            {
+                SolicitudCompraId = solicitudId,
+                Accion = "CONFLICTO_CONCURRENCIA",
+                EstadoAnterior = EstadoSolicitud.Aprobada,
+                EstadoNuevo = EstadoSolicitud.OrdenEmitida + " (Rechazado 409)",
+                UsuarioUsername = GetCurrentUsername(),
+                UsuarioNombre = GetCurrentNombreCompleto(),
+                UsuarioRol = GetCurrentRol(),
+                Detalle = detalle,
+                RequestId = requestId,
+                FechaHora = DateTime.Now
+            });
+            await _db.SaveChangesAsync();
+        }
+        catch
+        {
+            // No interrumpir respuesta 409 si falla guardado secundario
+        }
+    }
+
     /// <summary>
-    /// Endpoint para consultar las líneas registradas en el archivo TXT de logs (Logs/operaciones.txt).
+    /// Endpoint exclusivo para Admin: Permite auditar todos los cambios realizados sobre todas las solicitudes
+    /// (quién creó, quién aprobó, quién emitió orden y conflictos detectados).
+    /// </summary>
+    [HttpGet("auditoria")]
+    [Authorize(Roles = "Admin")]
+    public async Task<IActionResult> ObtenerAuditoria()
+    {
+        var historial = await _db.AuditoriasCambios
+            .AsNoTracking()
+            .OrderByDescending(a => a.FechaHora)
+            .ToListAsync();
+
+        return Ok(historial);
+    }
+
+    /// <summary>
+    /// Endpoint exclusivo para Admin: Consultar las líneas registradas en el archivo TXT de logs (Logs/operaciones.txt).
     /// </summary>
     [HttpGet("logs")]
+    [Authorize(Roles = "Admin")]
     public async Task<IActionResult> ObtenerLogs()
     {
         var lines = await _fileLogger.ReadLogsAsync(200);
@@ -496,9 +621,10 @@ public class SolicitudesController : ControllerBase
     }
 
     /// <summary>
-    /// Endpoint opcional para disparar un error de prueba y verificar el Middleware #2 (Manejo global de excepciones).
+    /// Endpoint para disparar un error de prueba y verificar el Middleware #2 (Manejo global de excepciones).
     /// </summary>
     [HttpGet("probar-excepcion")]
+    [AllowAnonymous]
     public IActionResult ProbarExcepcionGlobal()
     {
         throw new InvalidOperationException("Excepción de prueba para verificar el Middleware Global de Excepciones con respuesta JSON uniforme y X-Request-Id.");

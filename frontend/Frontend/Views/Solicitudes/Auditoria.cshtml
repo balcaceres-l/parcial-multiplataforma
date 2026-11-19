@@ -1,0 +1,77 @@
+@model List<Frontend.Models.AuditoriaCambioVm>
+@{
+    ViewData["Title"] = "Auditoría de Cambios (Admin)";
+}
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <div>
+        <h4 class="fw-bold mb-0">Panel de Auditoría de Cambios (Exclusivo Rol Admin)</h4>
+        <small class="text-muted">Historial completo de quién creó cada solicitud, quién la aprobó, quién emitió la orden de compra y conflictos detectados.</small>
+    </div>
+    <div class="d-flex gap-2">
+        <a asp-action="Logs" class="btn btn-outline-dark btn-sm">Ver Archivo Logs TXT</a>
+        <a asp-action="Index" class="btn btn-primary btn-sm">&larr; Volver a Solicitudes</a>
+    </div>
+</div>
+
+<div class="card shadow-sm">
+    <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0">
+            <thead class="table-dark">
+                <tr>
+                    <th>Fecha y Hora</th>
+                    <th>Solicitud</th>
+                    <th>Acción</th>
+                    <th>Cambio de Estado</th>
+                    <th>Usuario Registrado</th>
+                    <th>Rol</th>
+                    <th>Detalle del Cambio</th>
+                    <th>X-Request-Id</th>
+                </tr>
+            </thead>
+            <tbody>
+                @if (Model.Count == 0)
+                {
+                    <tr>
+                        <td colspan="8" class="text-center py-4 text-muted">No hay registros de auditoría aún.</td>
+                    </tr>
+                }
+                @foreach (var item in Model)
+                {
+                    var badgeClass = item.Accion switch
+                    {
+                        "SOLICITUD_CREADA" => "bg-secondary",
+                        "SOLICITUD_APROBADA" => "bg-primary",
+                        "ORDEN_EMITIDA" => "bg-success",
+                        "CONFLICTO_CONCURRENCIA" => "bg-danger",
+                        _ => "bg-dark"
+                    };
+
+                    <tr>
+                        <td class="small text-nowrap">@item.FechaHora.ToString("dd/MM/yyyy HH:mm:ss")</td>
+                        <td class="fw-bold">
+                            <a asp-action="Detalles" asp-route-id="@item.SolicitudCompraId" class="text-decoration-none">
+                                Solicitud #@item.SolicitudCompraId
+                            </a>
+                        </td>
+                        <td><span class="badge @badgeClass">@item.Accion</span></td>
+                        <td class="small text-nowrap">
+                            <code>@item.EstadoAnterior</code> &rarr; <code>@item.EstadoNuevo</code>
+                        </td>
+                        <td>
+                            <div class="fw-semibold">@item.UsuarioNombre</div>
+                            <div class="small text-muted">Usuario: <code>@item.UsuarioUsername</code></div>
+                        </td>
+                        <td>
+                            <span class="badge @(item.UsuarioRol == "Admin" ? "bg-warning text-dark" : "bg-info text-dark")">
+                                @item.UsuarioRol
+                            </span>
+                        </td>
+                        <td class="small">@item.Detalle</td>
+                        <td class="small"><code>@item.RequestId</code></td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+</div>

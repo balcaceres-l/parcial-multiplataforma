@@ -24,11 +24,13 @@ Toda la plataforma está unificada en una sola solución: Parcial3.sln
   * Puerto / URL Frontend HTTP : http://localhost:5257
   * Puerto / URL Frontend HTTPS: https://localhost:7243
 
-- Credenciales de prueba precargadas (Contraseña para todos: Pass123!):
-  * admin        (Roles: Admin, Solicitante, Aprobador, Compras | Claim Depto: Dirección General)
-  * solicitante1 (Rol: Solicitante | Claim Depto: Infraestructura TI)
-  * aprobador1   (Rol: Aprobador   | Claim Depto: Gerencia de Operaciones)
-  * compras1     (Rol: Compras     | Claim Depto: Adquisiciones y Compras)
+- Sistema con 2 Roles (Credenciales precargadas, Contraseña para todos: Pass123!):
+  1) Rol "Solicitante" (Crea solicitudes y solo tiene acceso a sus propias solicitudes):
+     * solicitante1 (Carlos Méndez | Claim Depto: Infraestructura TI)
+     * solicitante2 (María Fernanda Ruiz | Claim Depto: Redes y Telecomunicaciones)
+  2) Rol "Admin" (Tiene acceso a todas las solicitudes de todas las personas, aprueba registrando su usuario, emite orden y audita todos los cambios):
+     * admin  (Luis Felipe Balcaceres Silvestre | Claim Depto: Dirección General)
+     * admin2 (Ana López | Claim Depto: Gerencia y Compras)
 
 2. REGLAS DE NEGOCIO (UNA LÍNEA POR CADA UNA)
 --------------------------------------------------------------------------------

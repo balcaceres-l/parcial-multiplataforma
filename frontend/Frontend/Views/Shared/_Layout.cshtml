@@ -21,15 +21,28 @@
                 </button>
                 <div class="collapse navbar-collapse" id="mainNav">
                     <ul class="navbar-nav me-auto">
-                        <li class="nav-item">
-                            <a class="nav-link" asp-controller="Solicitudes" asp-action="Index">Solicitudes (RF2)</a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link" asp-controller="Solicitudes" asp-action="Crear">+ Nueva Solicitud (RF1)</a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link" asp-controller="Solicitudes" asp-action="Logs">Logs TXT &amp; Middlewares</a>
-                        </li>
+                        @if (User.Identity?.IsAuthenticated == true)
+                        {
+                            <li class="nav-item">
+                                <a class="nav-link" asp-controller="Solicitudes" asp-action="Index">
+                                    @(User.IsInRole("Admin") ? "Todas las Solicitudes (RF2)" : "Mis Solicitudes (RF2)")
+                                </a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link" asp-controller="Solicitudes" asp-action="Crear">+ Nueva Solicitud (RF1)</a>
+                            </li>
+                            @if (User.IsInRole("Admin"))
+                            {
+                                <li class="nav-item">
+                                    <a class="nav-link text-warning fw-semibold" asp-controller="Solicitudes" asp-action="Auditoria">
+                                        Auditar Cambios (Admin)
+                                    </a>
+                                </li>
+                                <li class="nav-item">
+                                    <a class="nav-link" asp-controller="Solicitudes" asp-action="Logs">Logs TXT &amp; Middlewares</a>
+                                </li>
+                            }
+                        }
                         <li class="nav-item">
                             <a class="nav-link" asp-controller="Home" asp-action="Index">Estado API</a>
                         </li>
@@ -38,10 +51,10 @@
                         @if (User.Identity?.IsAuthenticated == true)
                         {
                             var nombre = User.FindFirst("NombreCompleto")?.Value ?? User.Identity.Name;
-                            var rol = User.FindFirst("RolPrincipal")?.Value ?? "Usuario";
+                            var rol = User.FindFirst("RolPrincipal")?.Value ?? "Solicitante";
                             var depto = User.FindFirst("Departamento")?.Value ?? "";
-                            <span class="badge bg-info text-dark">
-                                @nombre | Rol: @rol (@depto)
+                            <span class="badge @(rol == "Admin" ? "bg-warning text-dark" : "bg-info text-dark")">
+                                @nombre [@User.Identity.Name] | Rol: @rol (@depto)
                             </span>
                             <form asp-controller="Auth" asp-action="Logout" method="post" class="d-inline">
                                 <button type="submit" class="btn btn-outline-light btn-sm">Salir</button>
@@ -89,7 +102,7 @@
     <footer class="border-top footer text-muted bg-white py-3 mt-4">
         <div class="container d-flex justify-content-between small">
             <span><strong>Luis Felipe Balcaceres Silvestre 2023-BS-602</strong> - Parcial 3 (.NET Web API + MVC)</span>
-            <span>Flujo único: Solicitud &rarr; Aprobación &rarr; Orden de Compra</span>
+            <span>2 Roles: Solicitante (sus solicitudes) y Admin (todas las solicitudes + aprobación + auditoría)</span>
         </div>
     </footer>
     <script src="~/lib/jquery/dist/jquery.min.js"></script>

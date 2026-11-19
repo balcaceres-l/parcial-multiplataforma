@@ -2,11 +2,18 @@
 @{
     ViewData["Title"] = $"Solicitud #{Model.Id}";
     var apiBaseUrl = ViewBag.ApiBaseUrl as string ?? "http://localhost:5191";
+    var isAdmin = User.IsInRole("Admin");
 }
 
 <div class="d-flex justify-content-between align-items-center mb-3">
     <h4 class="fw-bold mb-0">Solicitud de Compra #@Model.Id &mdash; @Model.Departamento</h4>
-    <a asp-action="Index" class="btn btn-outline-secondary btn-sm">&larr; Volver al listado</a>
+    <div class="d-flex gap-2">
+        @if (isAdmin)
+        {
+            <a asp-action="Auditoria" class="btn btn-warning btn-sm fw-semibold">Ver Auditoría Global</a>
+        }
+        <a asp-action="Index" class="btn btn-outline-secondary btn-sm">&larr; Volver al listado</a>
+    </div>
 </div>
 
 <!-- Barra visual del Flujo Único: Solicitud -> Aprobación -> Orden de Compra -->
@@ -16,7 +23,7 @@
             <div class="col-md-4">
                 <div class="p-2 rounded @(Model.Estado == "Pendiente" ? "bg-warning text-dark fw-bold" : "bg-success text-white")">
                     1. Solicitud Registrada (RF1)<br />
-                    <small>@Model.FechaCreacion.ToString("dd/MM/yyyy HH:mm")</small>
+                    <small>@Model.CreadoPorUsername (@Model.FechaCreacion.ToString("dd/MM/yyyy HH:mm"))</small>
                 </div>
             </div>
             <div class="col-md-4">
@@ -36,21 +43,21 @@
 </div>
 
 <div class="row g-4">
-    <!-- Columna Izquierda: Datos de la Solicitud -->
+    <!-- Columna Izquierda: Datos de la Solicitud e Historial de Auditoría -->
     <div class="col-md-6">
-        <div class="card shadow-sm h-100">
+        <div class="card shadow-sm mb-4">
             <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center">
                 <span>Datos de la Solicitud</span>
                 <span class="badge bg-light text-dark">Estado: @Model.Estado</span>
             </div>
             <div class="card-body">
+                <p class="mb-2"><strong>Solicitante:</strong> @Model.CreadoPor</p>
                 <p class="mb-2"><strong>Departamento:</strong> @Model.Departamento</p>
                 <p class="mb-2"><strong>Descripción:</strong> @Model.Descripcion</p>
                 <p class="mb-2"><strong>Justificación (Regla 1):</strong> @Model.Justificacion</p>
                 <p class="mb-2"><strong>Monto Estimado:</strong> <span class="fs-5 fw-bold text-primary">$@Model.MontoEstimado.ToString("N2")</span></p>
-                <p class="mb-2"><strong>Registrada por:</strong> @Model.CreadoPor (@Model.FechaCreacion.ToString("dd/MM/yyyy HH:mm:ss"))</p>
                 <p class="mb-2">
-                    <strong>Aprobada por (RF3):</strong>
+                    <strong>Usuario que Aprobó (RF3):</strong>
                     @if (!string.IsNullOrEmpty(Model.AprobadoPor))
                     {
                         <span class="text-success fw-semibold">@Model.AprobadoPor (@Model.FechaAprobacion?.ToString("dd/MM/yyyy HH:mm:ss"))</span>
@@ -73,92 +80,153 @@
                 }
             </div>
         </div>
+
+        <!-- Historial de Auditoría de esta solicitud -->
+        <div class="card shadow-sm">
+            <div class="card-header bg-secondary text-white d-flex justify-content-between align-items-center">
+                <span>Historial de Auditoría de Cambios (Solicitud #@Model.Id)</span>
+                <span class="badge bg-dark">@Model.HistorialAuditoria.Count eventos</span>
+            </div>
+            <div class="card-body p-0">
+                <ul class="list-group list-group-flush small">
+                    @if (Model.HistorialAuditoria.Count == 0)
+                    {
+                        <li class="list-group-item text-muted">Sin eventos registrados.</li>
+                    }
+                    @foreach (var aud in Model.HistorialAuditoria)
+                    {
+                        <li class="list-group-item">
+                            <div class="d-flex justify-content-between">
+                                <strong>@aud.Accion (@aud.EstadoAnterior &rarr; @aud.EstadoNuevo)</strong>
+                                <span class="text-muted">@aud.FechaHora.ToString("dd/MM/yyyy HH:mm:ss")</span>
+                            </div>
+                            <div>
+                                Usuario: <strong>@aud.UsuarioNombre [@aud.UsuarioUsername]</strong> (Rol: <code>@aud.UsuarioRol</code>)
+                            </div>
+                            <div class="text-muted">@aud.Detalle | <code>@aud.RequestId</code></div>
+                        </li>
+                    }
+                </ul>
+            </div>
+        </div>
     </div>
 
     <!-- Columna Derecha: Acciones del Flujo (RF3, RF4 y Regla 4 de Concurrencia) -->
     <div class="col-md-6">
-        <!-- RF3: Aprobar Solicitud -->
-        <div class="card shadow-sm mb-3">
-            <div class="card-header bg-primary text-white">
-                <strong>Paso 2 (RF3): Aprobar Solicitud</strong>
-            </div>
-            <div class="card-body">
-                <p class="small text-muted mb-2">
-                    <strong>Regla de Negocio 2:</strong> Solo una solicitud en estado <code>Pendiente</code> puede aprobarse. Requiere rol <code>Aprobador</code> o <code>Admin</code>.
-                </p>
-                <form asp-action="Aprobar" method="post">
-                    <input type="hidden" name="id" value="@Model.Id" />
-                    <button type="submit" class="btn @(Model.Estado == "Pendiente" ? "btn-success" : "btn-outline-secondary") w-100">
-                        @(Model.Estado == "Pendiente" ? "Aprobar Solicitud (RF3)" : $"Probar Regla 2 (Intentar aprobar en estado '{Model.Estado}')")
-                    </button>
-                </form>
-            </div>
-        </div>
-
-        <!-- RF4: Emitir Orden de Compra -->
-        <div class="card shadow-sm">
-            <div class="card-header bg-success text-white">
-                <strong>Paso 3 (RF4): Emitir Orden de Compra</strong>
-            </div>
-            <div class="card-body">
-                @if (Model.OrdenCompra != null)
-                {
-                    <div class="alert alert-success mb-3">
-                        <h6 class="fw-bold mb-1">Orden de Compra #@Model.OrdenCompra.Id Emitida</h6>
-                        <div><strong>Proveedor:</strong> @Model.OrdenCompra.Proveedor</div>
-                        <div><strong>Monto Final:</strong> $@Model.OrdenCompra.Monto.ToString("N2")</div>
-                        <div><strong>Emitida por:</strong> @Model.OrdenCompra.EmitidoPor</div>
-                        <div><strong>Fecha:</strong> @Model.OrdenCompra.FechaEmision.ToString("dd/MM/yyyy HH:mm:ss")</div>
-                        @if (!string.IsNullOrEmpty(Model.OrdenCompra.ComprobanteImagenUrl))
-                        {
-                            <div class="mt-2">
-                                <img src="@(apiBaseUrl + Model.OrdenCompra.ComprobanteImagenUrl)" alt="Comprobante Orden" class="img-fluid rounded border" style="max-height: 160px;" />
-                            </div>
-                        }
-                    </div>
-                }
-
-                <p class="small text-muted mb-2">
-                    <strong>Regla 3:</strong> Solo una solicitud <code>Aprobada</code> puede generar orden y solo una vez.<br />
-                    <strong>Regla 4 (Concurrencia):</strong> Si dos usuarios intentan emitir la orden al mismo tiempo, solo una operación tiene éxito y la otra recibe <code>409 Conflict</code>.
-                </p>
-
-                <form asp-action="EmitirOrden" method="post" enctype="multipart/form-data" class="mb-3">
-                    <input type="hidden" name="SolicitudId" value="@Model.Id" />
-                    <input type="hidden" name="RowVersion" value="@Model.RowVersion" />
-
-                    <div class="mb-2">
-                        <label class="form-label small fw-semibold mb-1">Proveedor Tecnológico / Suministros *</label>
-                        <input type="text" name="Proveedor" class="form-control form-control-sm" value="TechDistributors S.A. de C.V." required />
-                    </div>
-                    <div class="row">
-                        <div class="col-md-6 mb-2">
-                            <label class="form-label small fw-semibold mb-1">Monto Orden (USD) * (&gt; 0)</label>
-                            <input type="number" step="0.01" name="Monto" class="form-control form-control-sm" value="@Model.MontoEstimado.ToString(System.Globalization.CultureInfo.InvariantCulture)" required />
+        @if (!isAdmin)
+        {
+            <div class="card shadow-sm mb-3 border-info">
+                <div class="card-header bg-info text-dark fw-bold">
+                    Vista de Solicitante (Solo Lectura y Seguimiento)
+                </div>
+                <div class="card-body">
+                    <p class="mb-2">
+                        Como usuario con rol <strong>Solicitante</strong> (<code>@User.Identity?.Name</code>), tienes acceso exclusivo a consultar el estado y seguimiento de tus solicitudes.
+                    </p>
+                    @if (Model.OrdenCompra != null)
+                    {
+                        <div class="alert alert-success mb-0">
+                            <h6 class="fw-bold mb-1">Orden de Compra #@Model.OrdenCompra.Id Emitida</h6>
+                            <div><strong>Proveedor:</strong> @Model.OrdenCompra.Proveedor</div>
+                            <div><strong>Monto Final:</strong> $@Model.OrdenCompra.Monto.ToString("N2")</div>
+                            <div><strong>Emitida por:</strong> @Model.OrdenCompra.EmitidoPor</div>
+                            <div><strong>Fecha:</strong> @Model.OrdenCompra.FechaEmision.ToString("dd/MM/yyyy HH:mm:ss")</div>
                         </div>
-                        <div class="col-md-6 mb-2">
-                            <label class="form-label small fw-semibold mb-1">Imagen Proforma (Opcional)</label>
-                            <input type="file" name="ComprobanteImagen" accept="image/*" class="form-control form-control-sm" />
-                        </div>
-                    </div>
-                    <button type="submit" class="btn btn-success btn-sm w-100 mt-1">
-                        Emitir Orden de Compra (RF4)
-                    </button>
-                </form>
-
-                <!-- Botón de demostración directa de la Regla 4 (2 peticiones simultáneas) -->
-                <div class="border-top pt-3">
-                    <form asp-action="SimularConcurrencia" method="post">
-                        <input type="hidden" name="solicitudId" value="@Model.Id" />
-                        <input type="hidden" name="proveedor" value="Proveedor Simultáneo TechCorp" />
-                        <input type="hidden" name="monto" value="@Model.MontoEstimado.ToString(System.Globalization.CultureInfo.InvariantCulture)" />
-                        <input type="hidden" name="rowVersion" value="@Model.RowVersion" />
-                        <button type="submit" class="btn btn-warning btn-sm w-100 fw-semibold">
-                            Simular 2 Usuarios Emitiendo Orden al Mismo Tiempo (Probar Regla 4)
+                    }
+                    else
+                    {
+                        <p class="small text-muted mb-0">
+                            La aprobación (RF3), emisión de orden de compra (RF4) y auditoría global de cambios son realizadas por el rol <strong>Admin</strong>.
+                        </p>
+                    }
+                </div>
+            </div>
+        }
+        else
+        {
+            <!-- RF3: Aprobar Solicitud (Solo Admin) -->
+            <div class="card shadow-sm mb-3">
+                <div class="card-header bg-primary text-white">
+                    <strong>Paso 2 (RF3): Aprobar Solicitud (Rol Admin)</strong>
+                </div>
+                <div class="card-body">
+                    <p class="small text-muted mb-2">
+                        <strong>Regla de Negocio 2:</strong> Solo una solicitud en estado <code>Pendiente</code> puede aprobarse. Quedará registrado tu usuario (<code>@User.Identity?.Name</code>) como aprobador en la solicitud y en la tabla de auditoría.
+                    </p>
+                    <form asp-action="Aprobar" method="post">
+                        <input type="hidden" name="id" value="@Model.Id" />
+                        <button type="submit" class="btn @(Model.Estado == "Pendiente" ? "btn-success" : "btn-outline-secondary") w-100">
+                            @(Model.Estado == "Pendiente" ? "Aprobar Solicitud y Registrar Usuario (RF3)" : $"Probar Regla 2 (Intentar aprobar en estado '{Model.Estado}')")
                         </button>
                     </form>
                 </div>
             </div>
-        </div>
+
+            <!-- RF4: Emitir Orden de Compra (Solo Admin) -->
+            <div class="card shadow-sm">
+                <div class="card-header bg-success text-white">
+                    <strong>Paso 3 (RF4): Emitir Orden de Compra (Rol Admin)</strong>
+                </div>
+                <div class="card-body">
+                    @if (Model.OrdenCompra != null)
+                    {
+                        <div class="alert alert-success mb-3">
+                            <h6 class="fw-bold mb-1">Orden de Compra #@Model.OrdenCompra.Id Emitida</h6>
+                            <div><strong>Proveedor:</strong> @Model.OrdenCompra.Proveedor</div>
+                            <div><strong>Monto Final:</strong> $@Model.OrdenCompra.Monto.ToString("N2")</div>
+                            <div><strong>Emitida por:</strong> @Model.OrdenCompra.EmitidoPor</div>
+                            <div><strong>Fecha:</strong> @Model.OrdenCompra.FechaEmision.ToString("dd/MM/yyyy HH:mm:ss")</div>
+                            @if (!string.IsNullOrEmpty(Model.OrdenCompra.ComprobanteImagenUrl))
+                            {
+                                <div class="mt-2">
+                                    <img src="@(apiBaseUrl + Model.OrdenCompra.ComprobanteImagenUrl)" alt="Comprobante Orden" class="img-fluid rounded border" style="max-height: 160px;" />
+                                </div>
+                            }
+                        </div>
+                    }
+
+                    <p class="small text-muted mb-2">
+                        <strong>Regla 3:</strong> Solo una solicitud <code>Aprobada</code> puede generar orden y solo una vez.<br />
+                        <strong>Regla 4 (Concurrencia):</strong> Si dos usuarios intentan emitir la orden al mismo tiempo, solo una operación tiene éxito y la otra recibe <code>409 Conflict</code>.
+                    </p>
+
+                    <form asp-action="EmitirOrden" method="post" enctype="multipart/form-data" class="mb-3">
+                        <input type="hidden" name="SolicitudId" value="@Model.Id" />
+                        <input type="hidden" name="RowVersion" value="@Model.RowVersion" />
+
+                        <div class="mb-2">
+                            <label class="form-label small fw-semibold mb-1">Proveedor Tecnológico / Suministros *</label>
+                            <input type="text" name="Proveedor" class="form-control form-control-sm" value="TechDistributors S.A. de C.V." required />
+                        </div>
+                        <div class="row">
+                            <div class="col-md-6 mb-2">
+                                <label class="form-label small fw-semibold mb-1">Monto Orden (USD) * (&gt; 0)</label>
+                                <input type="number" step="0.01" name="Monto" class="form-control form-control-sm" value="@Model.MontoEstimado.ToString(System.Globalization.CultureInfo.InvariantCulture)" required />
+                            </div>
+                            <div class="col-md-6 mb-2">
+                                <label class="form-label small fw-semibold mb-1">Imagen Proforma (Opcional)</label>
+                                <input type="file" name="ComprobanteImagen" accept="image/*" class="form-control form-control-sm" />
+                            </div>
+                        </div>
+                        <button type="submit" class="btn btn-success btn-sm w-100 mt-1">
+                            Emitir Orden de Compra (RF4)
+                        </button>
+                    </form>
+
+                    <!-- Botón de demostración directa de la Regla 4 (2 peticiones simultáneas) -->
+                    <div class="border-top pt-3">
+                        <form asp-action="SimularConcurrencia" method="post">
+                            <input type="hidden" name="solicitudId" value="@Model.Id" />
+                            <input type="hidden" name="proveedor" value="Proveedor Simultáneo TechCorp" />
+                            <input type="hidden" name="monto" value="@Model.MontoEstimado.ToString(System.Globalization.CultureInfo.InvariantCulture)" />
+                            <input type="hidden" name="rowVersion" value="@Model.RowVersion" />
+                            <button type="submit" class="btn btn-warning btn-sm w-100 fw-semibold">
+                                Simular 2 Usuarios Emitiendo Orden al Mismo Tiempo (Probar Regla 4)
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        }
     </div>
 </div>

@@ -4,17 +4,17 @@
 }
 
 <div class="row justify-content-center">
-    <div class="col-md-5">
+    <div class="col-md-6">
         <div class="card shadow-sm">
             <div class="card-header bg-dark text-white">
-                <h5 class="mb-0">Autenticación JWT (Roles y Claims)</h5>
+                <h5 class="mb-0">Autenticación JWT (2 Roles: Solicitante y Admin)</h5>
             </div>
             <div class="card-body">
                 <form asp-action="Login" method="post">
                     <input type="hidden" name="returnUrl" value="@ViewBag.ReturnUrl" />
                     <div class="mb-3">
                         <label class="form-label fw-semibold">Usuario</label>
-                        <input asp-for="Username" class="form-control" id="inputUser" placeholder="Ej. admin, solicitante1, aprobador1, compras1" />
+                        <input asp-for="Username" class="form-control" id="inputUser" placeholder="Ej. admin, admin2, solicitante1, solicitante2" />
                         <span asp-validation-for="Username" class="text-danger small"></span>
                     </div>
                     <div class="mb-3">
@@ -26,19 +26,25 @@
                 </form>
 
                 <hr />
-                <p class="small text-muted mb-2"><strong>Acceso rápido por Rol (Contraseña: <code>Pass123!</code>):</strong></p>
+                <p class="small text-muted mb-2"><strong>Selecciona una cuenta de prueba (Contraseña: <code>Pass123!</code>):</strong></p>
+
+                <div class="mb-2 small fw-bold text-uppercase text-secondary">Rol 1: Solicitante (Solo tiene acceso a sus propias solicitudes)</div>
+                <div class="d-grid gap-2 mb-3">
+                    <button type="button" class="btn btn-outline-info text-dark btn-sm text-start" onclick="fillCreds('solicitante1')">
+                        <strong>solicitante1</strong> &mdash; Carlos Méndez (Infraestructura TI) &bull; <em>Solo ve sus solicitudes</em>
+                    </button>
+                    <button type="button" class="btn btn-outline-info text-dark btn-sm text-start" onclick="fillCreds('solicitante2')">
+                        <strong>solicitante2</strong> &mdash; María Fernanda Ruiz (Redes y Telecomunicaciones) &bull; <em>Solo ve sus solicitudes</em>
+                    </button>
+                </div>
+
+                <div class="mb-2 small fw-bold text-uppercase text-secondary">Rol 2: Admin (Ve todas las solicitudes, aprueba, emite orden y audita cambios)</div>
                 <div class="d-grid gap-2">
                     <button type="button" class="btn btn-outline-dark btn-sm text-start" onclick="fillCreds('admin')">
-                        <strong>admin</strong> &mdash; Luis Felipe Balcaceres (Todos los roles: Solicitante, Aprobador, Compras)
+                        <strong>admin</strong> &mdash; Luis Felipe Balcaceres Silvestre (Dirección General) &bull; <em>Acceso total y auditoría</em>
                     </button>
-                    <button type="button" class="btn btn-outline-secondary btn-sm text-start" onclick="fillCreds('solicitante1')">
-                        <strong>solicitante1</strong> &mdash; Rol: Solicitante | Claim Depto: Infraestructura TI
-                    </button>
-                    <button type="button" class="btn btn-outline-success btn-sm text-start" onclick="fillCreds('aprobador1')">
-                        <strong>aprobador1</strong> &mdash; Rol: Aprobador | Claim Depto: Gerencia de Operaciones
-                    </button>
-                    <button type="button" class="btn btn-outline-primary btn-sm text-start" onclick="fillCreds('compras1')">
-                        <strong>compras1</strong> &mdash; Rol: Compras | Claim Depto: Adquisiciones y Compras
+                    <button type="button" class="btn btn-outline-dark btn-sm text-start" onclick="fillCreds('admin2')">
+                        <strong>admin2</strong> &mdash; Ana López (Gerencia y Compras) &bull; <em>Acceso total y auditoría</em>
                     </button>
                 </div>
             </div>
