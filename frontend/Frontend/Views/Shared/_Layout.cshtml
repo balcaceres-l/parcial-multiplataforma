@@ -3,7 +3,7 @@
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>@ViewData["Title"] - TechSupplies Compras</title>
+    <title>@ViewData["Title"] - Grupo Empresarial Nova</title>
     <script type="importmap"></script>
     <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
     <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
@@ -14,7 +14,7 @@
         <nav class="navbar navbar-expand-lg navbar-dark bg-dark shadow-sm mb-4">
             <div class="container">
                 <a class="navbar-brand fw-bold" asp-controller="Solicitudes" asp-action="Index">
-                    TechSupplies | Compras &amp; Suministros
+                    Grupo Empresarial Nova
                 </a>
                 <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#mainNav">
                     <span class="navbar-toggler-icon"></span>
@@ -25,11 +25,11 @@
                         {
                             <li class="nav-item">
                                 <a class="nav-link" asp-controller="Solicitudes" asp-action="Index">
-                                    @(User.IsInRole("Admin") ? "Todas las Solicitudes (RF2)" : "Mis Solicitudes (RF2)")
+                                    @(User.IsInRole("Admin") ? "Todas las Solicitudes" : "Mis Solicitudes")
                                 </a>
                             </li>
                             <li class="nav-item">
-                                <a class="nav-link" asp-controller="Solicitudes" asp-action="Crear">+ Nueva Solicitud (RF1)</a>
+                                <a class="nav-link" asp-controller="Solicitudes" asp-action="Crear">+ Nueva Solicitud</a>
                             </li>
                             @if (User.IsInRole("Admin"))
                             {
@@ -62,7 +62,7 @@
                         }
                         else
                         {
-                            <a class="btn btn-primary btn-sm" asp-controller="Auth" asp-action="Login">Iniciar Sesión (JWT)</a>
+                            <a class="btn btn-primary btn-sm" asp-controller="Auth" asp-action="Login">Iniciar Sesión</a>
                         }
                     </div>
                 </div>
@@ -101,8 +101,8 @@
 
     <footer class="border-top footer text-muted bg-white py-3 mt-4">
         <div class="container d-flex justify-content-between small">
-            <span><strong>Luis Felipe Balcaceres Silvestre 2023-BS-602</strong> - Parcial 3 (.NET Web API + MVC)</span>
-            <span>2 Roles: Solicitante (sus solicitudes) y Admin (todas las solicitudes + aprobación + auditoría)</span>
+            <span><strong>Grupo Empresarial Nova</strong> &mdash; Luis Felipe Balcaceres Silvestre 2023-BS-602</span>
+            <span>Flujo único: Solicitud &rarr; Aprobación &rarr; Orden de Compra</span>
         </div>
     </footer>
     <script src="~/lib/jquery/dist/jquery.min.js"></script>

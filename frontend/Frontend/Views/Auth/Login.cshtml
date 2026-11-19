@@ -1,13 +1,13 @@
 @model Frontend.Models.LoginViewModel
 @{
-    ViewData["Title"] = "Iniciar Sesión (JWT)";
+    ViewData["Title"] = "Iniciar Sesión";
 }
 
 <div class="row justify-content-center">
     <div class="col-md-6">
         <div class="card shadow-sm">
             <div class="card-header bg-dark text-white">
-                <h5 class="mb-0">Autenticación JWT (2 Roles: Solicitante y Admin)</h5>
+                <h5 class="mb-0">Grupo Empresarial Nova &mdash; Iniciar Sesión</h5>
             </div>
             <div class="card-body">
                 <form asp-action="Login" method="post">
@@ -19,10 +19,15 @@
                     </div>
                     <div class="mb-3">
                         <label class="form-label fw-semibold">Contraseña</label>
-                        <input asp-for="Password" type="password" class="form-control" id="inputPass" value="Pass123!" />
+                        <div class="input-group">
+                            <input asp-for="Password" type="password" class="form-control" id="inputPass" value="Pass123!" />
+                            <button class="btn btn-outline-secondary" type="button" id="btnTogglePass" onclick="togglePassword()">
+                                Mostrar
+                            </button>
+                        </div>
                         <span asp-validation-for="Password" class="text-danger small"></span>
                     </div>
-                    <button type="submit" class="btn btn-primary w-100">Ingresar con JWT</button>
+                    <button type="submit" class="btn btn-primary w-100">Ingresar</button>
                 </form>
 
                 <hr />
@@ -57,6 +62,18 @@
         function fillCreds(user) {
             document.getElementById('inputUser').value = user;
             document.getElementById('inputPass').value = 'Pass123!';
+        }
+
+        function togglePassword() {
+            var passInput = document.getElementById('inputPass');
+            var btn = document.getElementById('btnTogglePass');
+            if (passInput.type === 'password') {
+                passInput.type = 'text';
+                btn.textContent = 'Ocultar';
+            } else {
+                passInput.type = 'password';
+                btn.textContent = 'Mostrar';
+            }
         }
     </script>
 }

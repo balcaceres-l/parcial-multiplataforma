@@ -1,12 +1,12 @@
 ﻿@{
-    ViewData["Title"] = "Inicio";
+    ViewData["Title"] = "Estado API";
     var health = ViewBag.ApiHealth as Frontend.Services.ApiHealthResponse;
     var baseUrl = ViewBag.ApiBaseUrl as string;
 }
 
 <div class="text-center py-4">
-    <h1 class="display-5 fw-bold">Plataforma Parcial 3 (.NET 10)</h1>
-    <p class="lead text-muted">ASP.NET Core MVC conectado por HTTP a ASP.NET Core Web API</p>
+    <h1 class="display-5 fw-bold">Grupo Empresarial Nova</h1>
+    <p class="lead text-muted">Plataforma de Gestión de Solicitudes y Órdenes de Compra</p>
 
     <div class="card shadow-sm mx-auto mt-4" style="max-width: 600px;">
         <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center">
@@ -20,7 +20,7 @@
             @if (health != null)
             {
                 <p class="mb-2"><strong>Servicio:</strong> @health.Service</p>
-                <p class="mb-2"><strong>Módulos preparados:</strong></p>
+                <p class="mb-2"><strong>Módulos activos:</strong></p>
                 <div class="d-flex flex-wrap gap-1 mb-2">
                     @foreach (var feat in health.Features)
                     {

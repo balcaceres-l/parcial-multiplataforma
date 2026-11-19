@@ -58,8 +58,6 @@ public class AuthController : Controller
 
         await HttpContext.SignInAsync(CookieAuthenticationDefaults.AuthenticationScheme, principal);
 
-        TempData["Success"] = $"Bienvenido, {data.NombreCompleto} ({data.Rol} - {data.Departamento}). [X-Request-Id: {result.RequestId}]";
-
         if (!string.IsNullOrWhiteSpace(returnUrl) && Url.IsLocalUrl(returnUrl))
             return Redirect(returnUrl);
 
@@ -71,7 +69,6 @@ public class AuthController : Controller
     {
         HttpContext.Session.Clear();
         await HttpContext.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
-        TempData["Success"] = "Sesión cerrada correctamente.";
         return RedirectToAction("Login");
     }
 

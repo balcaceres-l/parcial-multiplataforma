@@ -1,6 +1,6 @@
 @model List<Frontend.Models.SolicitudCompraVm>
 @{
-    ViewData["Title"] = "Solicitudes de Compra (RF2)";
+    ViewData["Title"] = "Solicitudes de Compra";
     var estadoActual = ViewBag.FiltroEstado as string;
     var deptoActual = ViewBag.FiltroDepartamento as string;
     var busquedaActual = ViewBag.FiltroBusqueda as string;
@@ -28,11 +28,11 @@
         {
             <a asp-action="Auditoria" class="btn btn-warning fw-semibold">Auditar Cambios</a>
         }
-        <a asp-action="Crear" class="btn btn-primary">+ Registrar Solicitud (RF1)</a>
+        <a asp-action="Crear" class="btn btn-primary">+ Registrar Solicitud</a>
     </div>
 </div>
 
-<!-- RF2: Filtro para encontrar solicitudes más fácilmente -->
+<!-- Filtro para encontrar solicitudes más fácilmente -->
 <div class="card shadow-sm mb-4">
     <div class="card-body py-3">
         <form method="get" asp-action="Index" class="row g-2 align-items-end">
@@ -61,7 +61,7 @@
     </div>
 </div>
 
-<!-- RF2: Tabla con Departamento, Monto, Estado y Fecha -->
+<!-- Tabla con Departamento, Monto, Estado y Fecha -->
 <div class="card shadow-sm">
     <div class="table-responsive">
         <table class="table table-hover align-middle mb-0">
@@ -73,7 +73,7 @@
                     <th>Descripción / Justificación</th>
                     <th>Monto</th>
                     <th>Estado</th>
-                    <th>Aprobado Por (RF3)</th>
+                    <th>Aprobado Por</th>
                     <th>Fecha</th>
                     <th class="text-end">Acciones</th>
                 </tr>

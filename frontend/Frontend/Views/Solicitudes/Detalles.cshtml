@@ -22,19 +22,19 @@
         <div class="row text-center">
             <div class="col-md-4">
                 <div class="p-2 rounded @(Model.Estado == "Pendiente" ? "bg-warning text-dark fw-bold" : "bg-success text-white")">
-                    1. Solicitud Registrada (RF1)<br />
+                    1. Solicitud Registrada<br />
                     <small>@Model.CreadoPorUsername (@Model.FechaCreacion.ToString("dd/MM/yyyy HH:mm"))</small>
                 </div>
             </div>
             <div class="col-md-4">
                 <div class="p-2 rounded @(Model.Estado == "Pendiente" ? "bg-light text-muted border" : (Model.Estado == "Aprobada" ? "bg-primary text-white fw-bold" : "bg-success text-white"))">
-                    2. Aprobación (RF3)<br />
+                    2. Aprobación<br />
                     <small>@(Model.AprobadoPor ?? "Pendiente de aprobar")</small>
                 </div>
             </div>
             <div class="col-md-4">
                 <div class="p-2 rounded @(Model.Estado == "OrdenEmitida" ? "bg-success text-white fw-bold" : "bg-light text-muted border")">
-                    3. Orden de Compra (RF4)<br />
+                    3. Orden de Compra<br />
                     <small>@(Model.OrdenCompra != null ? $"OC #{Model.OrdenCompra.Id} ({Model.OrdenCompra.Proveedor})" : "Sin emitir")</small>
                 </div>
             </div>
@@ -57,7 +57,7 @@
                 <p class="mb-2"><strong>Justificación (Regla 1):</strong> @Model.Justificacion</p>
                 <p class="mb-2"><strong>Monto Estimado:</strong> <span class="fs-5 fw-bold text-primary">$@Model.MontoEstimado.ToString("N2")</span></p>
                 <p class="mb-2">
-                    <strong>Usuario que Aprobó (RF3):</strong>
+                    <strong>Usuario que Aprobó:</strong>
                     @if (!string.IsNullOrEmpty(Model.AprobadoPor))
                     {
                         <span class="text-success fw-semibold">@Model.AprobadoPor (@Model.FechaAprobacion?.ToString("dd/MM/yyyy HH:mm:ss"))</span>
@@ -111,7 +111,7 @@
         </div>
     </div>
 
-    <!-- Columna Derecha: Acciones del Flujo (RF3, RF4 y Regla 4 de Concurrencia) -->
+    <!-- Columna Derecha: Acciones del Flujo -->
     <div class="col-md-6">
         @if (!isAdmin)
         {
@@ -136,7 +136,7 @@
                     else
                     {
                         <p class="small text-muted mb-0">
-                            La aprobación (RF3), emisión de orden de compra (RF4) y auditoría global de cambios son realizadas por el rol <strong>Admin</strong>.
+                            La aprobación, emisión de orden de compra y auditoría global de cambios son realizadas por el rol <strong>Admin</strong>.
                         </p>
                     }
                 </div>
@@ -144,10 +144,10 @@
         }
         else
         {
-            <!-- RF3: Aprobar Solicitud (Solo Admin) -->
+            <!-- Aprobar Solicitud (Solo Admin) -->
             <div class="card shadow-sm mb-3">
                 <div class="card-header bg-primary text-white">
-                    <strong>Paso 2 (RF3): Aprobar Solicitud (Rol Admin)</strong>
+                    <strong>Paso 2: Aprobar Solicitud (Rol Admin)</strong>
                 </div>
                 <div class="card-body">
                     <p class="small text-muted mb-2">
@@ -156,16 +156,16 @@
                     <form asp-action="Aprobar" method="post">
                         <input type="hidden" name="id" value="@Model.Id" />
                         <button type="submit" class="btn @(Model.Estado == "Pendiente" ? "btn-success" : "btn-outline-secondary") w-100">
-                            @(Model.Estado == "Pendiente" ? "Aprobar Solicitud y Registrar Usuario (RF3)" : $"Probar Regla 2 (Intentar aprobar en estado '{Model.Estado}')")
+                            @(Model.Estado == "Pendiente" ? "Aprobar Solicitud y Registrar Usuario" : $"Probar Regla 2 (Intentar aprobar en estado '{Model.Estado}')")
                         </button>
                     </form>
                 </div>
             </div>
 
-            <!-- RF4: Emitir Orden de Compra (Solo Admin) -->
+            <!-- Emitir Orden de Compra (Solo Admin) -->
             <div class="card shadow-sm">
                 <div class="card-header bg-success text-white">
-                    <strong>Paso 3 (RF4): Emitir Orden de Compra (Rol Admin)</strong>
+                    <strong>Paso 3: Emitir Orden de Compra (Rol Admin)</strong>
                 </div>
                 <div class="card-body">
                     @if (Model.OrdenCompra != null)
@@ -196,7 +196,7 @@
 
                         <div class="mb-2">
                             <label class="form-label small fw-semibold mb-1">Proveedor Tecnológico / Suministros *</label>
-                            <input type="text" name="Proveedor" class="form-control form-control-sm" value="TechDistributors S.A. de C.V." required />
+                            <input type="text" name="Proveedor" class="form-control form-control-sm" value="Nova Tech Distributors S.A. de C.V." required />
                         </div>
                         <div class="row">
                             <div class="col-md-6 mb-2">
@@ -209,7 +209,7 @@
                             </div>
                         </div>
                         <button type="submit" class="btn btn-success btn-sm w-100 mt-1">
-                            Emitir Orden de Compra (RF4)
+                            Emitir Orden de Compra
                         </button>
                     </form>
 
@@ -217,7 +217,7 @@
                     <div class="border-top pt-3">
                         <form asp-action="SimularConcurrencia" method="post">
                             <input type="hidden" name="solicitudId" value="@Model.Id" />
-                            <input type="hidden" name="proveedor" value="Proveedor Simultáneo TechCorp" />
+                            <input type="hidden" name="proveedor" value="Proveedor Simultáneo Nova" />
                             <input type="hidden" name="monto" value="@Model.MontoEstimado.ToString(System.Globalization.CultureInfo.InvariantCulture)" />
                             <input type="hidden" name="rowVersion" value="@Model.RowVersion" />
                             <button type="submit" class="btn btn-warning btn-sm w-100 fw-semibold">
