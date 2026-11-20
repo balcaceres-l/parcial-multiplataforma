@@ -1,25 +1,28 @@
 Luis Felipe Balcaceres Silvestre 2023-BS-602
 ================================================================================
-PLATAFORMA DE GESTIÓN DE SOLICITUDES Y ÓRDENES DE COMPRA (PARCIAL 3)
+GRUPO EMPRESARIAL NOVA - GESTIÓN DE SOLICITUDES Y ÓRDENES DE COMPRA
+Carpeta / Solución: Balcaceres_Luis_ExamenParcial (Balcaceres_Luis_ExamenParcial.sln)
 Flujo único: Solicitud -> Aprobación -> Orden de Compra
 ================================================================================
 
 1. INSTRUCCIONES DE EJECUCIÓN (PUERTOS Y URLs)
 --------------------------------------------------------------------------------
-Toda la plataforma está unificada en una sola solución: Parcial3.sln
+Toda la plataforma está unificada en una sola solución dentro de la carpeta Balcaceres_Luis_ExamenParcial:
+Balcaceres_Luis_ExamenParcial.sln
 
 - Compilar toda la solución:
-  dotnet build Parcial3.sln
+  cd Balcaceres_Luis_ExamenParcial
+  dotnet build Balcaceres_Luis_ExamenParcial.sln
 
 - Iniciar el Backend (ASP.NET Core Web API):
-  cd backend/Api
+  cd Balcaceres_Luis_ExamenParcial/backend/Api
   dotnet run
   * Puerto / URL Backend HTTP : http://localhost:5191
   * Puerto / URL Backend HTTPS: https://localhost:7010
   * Archivo de Logs TXT       : backend/Api/Logs/operaciones.txt
 
 - Iniciar el Frontend (ASP.NET Core MVC):
-  cd frontend/Frontend
+  cd Balcaceres_Luis_ExamenParcial/frontend/Frontend
   dotnet run
   * Puerto / URL Frontend HTTP : http://localhost:5257
   * Puerto / URL Frontend HTTPS: https://localhost:7243

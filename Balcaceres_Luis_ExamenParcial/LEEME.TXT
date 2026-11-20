@@ -1,0 +1,49 @@
+Luis Felipe Balcaceres Silvestre 2023-BS-602
+================================================================================
+GRUPO EMPRESARIAL NOVA - GESTIÓN DE SOLICITUDES Y ÓRDENES DE COMPRA
+Carpeta / Solución: Balcaceres_Luis_ExamenParcial (Balcaceres_Luis_ExamenParcial.sln)
+Flujo único: Solicitud -> Aprobación -> Orden de Compra
+================================================================================
+
+1. INSTRUCCIONES DE EJECUCIÓN (PUERTOS Y URLs)
+--------------------------------------------------------------------------------
+Toda la plataforma está unificada en una sola solución dentro de la carpeta Balcaceres_Luis_ExamenParcial:
+Balcaceres_Luis_ExamenParcial.sln
+
+- Compilar toda la solución:
+  cd Balcaceres_Luis_ExamenParcial
+  dotnet build Balcaceres_Luis_ExamenParcial.sln
+
+- Iniciar el Backend (ASP.NET Core Web API):
+  cd Balcaceres_Luis_ExamenParcial/backend/Api
+  dotnet run
+  * Puerto / URL Backend HTTP : http://localhost:5191
+  * Puerto / URL Backend HTTPS: https://localhost:7010
+  * Archivo de Logs TXT       : backend/Api/Logs/operaciones.txt
+
+- Iniciar el Frontend (ASP.NET Core MVC):
+  cd Balcaceres_Luis_ExamenParcial/frontend/Frontend
+  dotnet run
+  * Puerto / URL Frontend HTTP : http://localhost:5257
+  * Puerto / URL Frontend HTTPS: https://localhost:7243
+
+- Sistema con 2 Roles (Credenciales precargadas, Contraseña para todos: Pass123!):
+  1) Rol "Solicitante" (Crea solicitudes y solo tiene acceso a sus propias solicitudes):
+     * solicitante1 (Carlos Méndez | Claim Depto: Infraestructura TI)
+     * solicitante2 (María Fernanda Ruiz | Claim Depto: Redes y Telecomunicaciones)
+  2) Rol "Admin" (Tiene acceso a todas las solicitudes de todas las personas, aprueba registrando su usuario, emite orden y audita todos los cambios):
+     * admin  (Luis Felipe Balcaceres Silvestre | Claim Depto: Dirección General)
+     * admin2 (Ana López | Claim Depto: Gerencia y Compras)
+
+2. REGLAS DE NEGOCIO (UNA LÍNEA POR CADA UNA)
+--------------------------------------------------------------------------------
+Regla 1: El monto estimado o final debe ser estrictamente mayor a 0 y la justificación de la solicitud es obligatoria.
+Regla 2: Solo una solicitud que se encuentre en estado "Pendiente" puede ser aprobada (cambiando su estado a "Aprobada").
+Regla 3: Solo una solicitud en estado "Aprobada" puede generar una orden de compra y únicamente una vez (máximo una orden por solicitud).
+Regla 4: Si dos usuarios intentan emitir la orden de compra de la misma solicitud al mismo tiempo, solo una operación tiene éxito y la otra recibe un error 409 Conflict controlado.
+
+3. EXPLICACIÓN EN 3 LÍNEAS DE CÓMO SE RESOLVIÓ LA REGLA 4 (CONCURRENCIA)
+--------------------------------------------------------------------------------
+Línea 1: Se configuró control de concurrencia optimista en EF Core mediante el token [ConcurrencyCheck] / IsConcurrencyToken() sobre la propiedad RowVersion de SolicitudCompra junto con un índice único (HasIndex(o => o.SolicitudCompraId).IsUnique()) en la tabla OrdenesCompra.
+Línea 2: Al emitir la orden de compra dentro de una transacción, se rota el RowVersion de la solicitud y se inserta la orden en un mismo SaveChangesAsync(), verificando que el RowVersion original leído coincida con el de la base de datos.
+Línea 3: Si dos peticiones concurren simultáneamente, la primera confirma la transacción y la segunda colisiona por RowVersion (DbUpdateConcurrencyException) o índice único (DbUpdateException), haciendo rollback, registrando el conflicto con su X-Request-Id en Logs/operaciones.txt y devolviendo HTTP 409 Conflict.

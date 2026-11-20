@@ -12,7 +12,7 @@ public class HealthController : ControllerBase
         return Ok(new
         {
             Status = "Online",
-            Service = "ASP.NET Core Web API (Parcial 3)",
+            Service = "Grupo Empresarial Nova - Web API (Balcaceres_Luis_ExamenParcial)",
             Features = new[] { "JWT", "Roles", "Claims", "Imágenes", "Concurrencia EF Core", "Logs Middleware" },
             Timestamp = DateTime.UtcNow
         });
